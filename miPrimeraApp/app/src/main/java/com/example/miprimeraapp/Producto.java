@@ -8,16 +8,18 @@ public class Producto {
     String descripcion;
     double precio;
     int stock;
+    double costo;
     String categoria;
     ArrayList<String> imagenes; // Lista de URLs de imágenes
 
     public Producto(String idProducto, String nombre, String descripcion,
-                    double precio, int stock, String categoria, ArrayList<String> imagenes) {
+                    double precio, int stock,double costo, String categoria, ArrayList<String> imagenes) {
         this.idProducto = idProducto;
         this.nombre = nombre;
         this.descripcion = descripcion;
         this.precio = precio;
         this.stock = stock;
+        this.costo = costo;
         this.categoria = categoria;
         this.imagenes = imagenes;
     }
@@ -37,6 +39,8 @@ public class Producto {
 
     public int getStock() { return stock; }
     public void setStock(int stock) { this.stock = stock; }
+    public double getCosto() { return costo; }
+    public void setCosto(double costo) { this.costo = costo; }
 
     public String getCategoria() { return categoria; }
     public void setCategoria(String categoria) { this.categoria = categoria; }

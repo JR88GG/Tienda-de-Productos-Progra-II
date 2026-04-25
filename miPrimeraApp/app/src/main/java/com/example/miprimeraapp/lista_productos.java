@@ -104,6 +104,7 @@ public class lista_productos extends AppCompatActivity {
                 jsonProducto.put("descripcion", productoSeleccionado.getDescripcion());
                 jsonProducto.put("precio", productoSeleccionado.getPrecio());
                 jsonProducto.put("stock", productoSeleccionado.getStock());
+                jsonProducto.put("costo", productoSeleccionado.getCosto());
                 jsonProducto.put("categoria", productoSeleccionado.getCategoria());
 
                 // 🔥 AGREGAR: Buscar _id y _rev para CouchDB
@@ -423,6 +424,7 @@ public class lista_productos extends AppCompatActivity {
                             doc.getString("descripcion"),
                             doc.getDouble("precio"),
                             doc.getInt("stock"),
+                            doc.getDouble("costo"),
                             doc.getString("categoria"),
                             imagenes
                     );

@@ -19,6 +19,7 @@ public class DB extends SQLiteOpenHelper {
             "descripcion TEXT, " +
             "precio REAL, " +
             "stock INTEGER, " +
+            "costo REAL,"+
             "categoria TEXT)";
 
     // Tabla de imágenes (relación muchos a uno con productos)
@@ -60,7 +61,8 @@ public class DB extends SQLiteOpenHelper {
                             "'" + datos[2] + "'," +
                             datos[3] + "," +
                             datos[4] + "," +
-                            "'" + datos[5] + "'" +
+                            datos[5] + "," +
+                            "'" + datos[6] + "'" +
                             ")";
                     db.execSQL(sql);
 
@@ -80,7 +82,8 @@ public class DB extends SQLiteOpenHelper {
                             "descripcion='" + datos[2] + "'," +
                             "precio=" + datos[3] + "," +
                             "stock=" + datos[4] + "," +
-                            "categoria='" + datos[5] + "' " +
+                            "costo=" + datos[5] + "," +
+                            "categoria='" + datos[6] + "' " +
                             "WHERE idProducto='" + datos[0] + "'";
                     db.execSQL(sql);
 

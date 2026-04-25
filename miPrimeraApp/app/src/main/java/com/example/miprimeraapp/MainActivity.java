@@ -256,6 +256,12 @@ public class MainActivity extends AppCompatActivity {
                     tempval = findViewById(R.id.txtEmailAmigos);
                     tempval.setText(String.valueOf(datos.getInt("stock")));
 
+                    tempval = findViewById(R.id.txtEmailAmigos);
+                    tempval.setText(String.valueOf(datos.getInt("stock")));
+
+                    tempval = findViewById(R.id.txtEmailAmigos2);
+                    tempval.setText(String.valueOf(datos.getInt("costo")));
+
                     tempval = findViewById(R.id.txtDuiAmigos);
                     tempval.setText(datos.getString("categoria"));
 
@@ -429,6 +435,9 @@ public class MainActivity extends AppCompatActivity {
         TextView txtEmail = findViewById(R.id.txtEmailAmigos);
         txtEmail.setText("");
 
+        TextView txtEmail2 = findViewById(R.id.txtEmailAmigos2);
+        txtEmail.setText("");
+
         TextView txtDui = findViewById(R.id.txtDuiAmigos);
         txtDui.setText("");
 
@@ -491,6 +500,9 @@ public class MainActivity extends AppCompatActivity {
             tempval = findViewById(R.id.txtEmailAmigos);
             String stock = tempval.getText().toString().trim();
 
+            tempval = findViewById(R.id.txtEmailAmigos2);
+            String costo = tempval.getText().toString().trim();
+
             tempval = findViewById(R.id.txtDuiAmigos);
             String categoria = tempval.getText().toString().trim();
 
@@ -547,6 +559,19 @@ public class MainActivity extends AppCompatActivity {
                 findViewById(R.id.txtEmailAmigos).requestFocus();
                 return;
             }
+            double costoDouble;
+            try {
+                costoDouble = Double.parseDouble(costo);
+                if (costoDouble <= 0) {
+                    mostrarMensaje("El costo debe ser mayor a 0");
+                    findViewById(R.id.txtEmailAmigos2).requestFocus();
+                    return;
+                }
+            } catch (NumberFormatException e) {
+                mostrarMensaje("El costo debe ser un número válido");
+                findViewById(R.id.txtEmailAmigos2).requestFocus();
+                return;
+            }
 
             if (categoria.isEmpty()) {
                 mostrarMensaje("Por favor ingrese la categoría del producto");
@@ -566,7 +591,7 @@ public class MainActivity extends AppCompatActivity {
 
             // ============ GUARDAR EN BASE DE DATOS LOCAL ============
             String[] imagenes = {urlFoto1, urlFoto2, urlFoto3};
-            String[] datos = {idProducto, nombre, descripcion, precio, stock, categoria};
+            String[] datos = {idProducto, nombre, descripcion, precio, stock,costo, categoria};
 
             String respuesta = db.administrar_productos(accion, datos, imagenes);
 
@@ -589,6 +614,7 @@ public class MainActivity extends AppCompatActivity {
             datosProducto.put("descripcion", descripcion);
             datosProducto.put("precio", precioDouble);
             datosProducto.put("stock", stockInt);
+            datosProducto.put("costo", costoDouble);
             datosProducto.put("categoria", categoria);
             datosProducto.put("tipo", "producto");
             datosProducto.put("fecha_creacion", System.currentTimeMillis());
@@ -683,5 +709,20 @@ public class MainActivity extends AppCompatActivity {
         Intent intent = new Intent(this, lista_productos.class);
         startActivity(intent);
         finish();
+    }
+    // ============================================
+    // CALCULAR GANANCIA (precio - costo)
+    // ============================================
+    private double calcularGanancia(String precioStr, String costoStr) {
+        try {
+            double precio = Double.parseDouble(precioStr);
+            double costo  = Double.parseDouble(costoStr);
+
+            if (precio <= 0 || costo <= 0) return -1;
+
+            return precio - costo; // ganancia bruta
+        } catch (NumberFormatException e) {
+            return -1; // señal de error
+        }
     }
 }

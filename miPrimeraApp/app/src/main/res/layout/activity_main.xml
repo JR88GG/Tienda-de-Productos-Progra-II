@@ -48,74 +48,85 @@
         android:layout_height="wrap_content" />
 
     <EditText
-        android:id="@+id/txtDuiAmigos"
-        android:hint="Categoría"
-        android:layout_below="@id/txtEmailAmigos"
-        android:layout_marginTop="20dp"
-        android:layout_marginLeft="20dp"
-        android:layout_marginRight="20dp"
+        android:id="@+id/txtEmailAmigos2"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content" />
+        android:layout_height="wrap_content"
+        android:layout_below="@id/txtTelefonoAmigos"
+        android:layout_marginLeft="20dp"
+        android:layout_marginTop="85dp"
+        android:layout_marginRight="20dp"
+        android:hint="costo"
+        android:inputType="number" />
+
+    <EditText
+        android:id="@+id/txtDuiAmigos"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/txtEmailAmigos"
+        android:layout_marginLeft="20dp"
+        android:layout_marginTop="80dp"
+        android:layout_marginRight="20dp"
+        android:hint="Categoría" />
 
     <LinearLayout
         android:id="@+id/linearImagenes"
-        android:layout_below="@id/txtDuiAmigos"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="20dp"
+        android:layout_below="@id/txtDuiAmigos"
+        android:layout_marginTop="32dp"
         android:gravity="center"
         android:orientation="horizontal">
 
         <ImageButton
             android:id="@+id/imgFotoProducto1"
-            android:src="@drawable/camara"
-            android:scaleType="centerCrop"
             android:layout_width="100dp"
             android:layout_height="100dp"
             android:layout_margin="5dp"
             android:background="@android:color/darker_gray"
-            android:padding="5dp" />
+            android:padding="5dp"
+            android:scaleType="centerCrop"
+            android:src="@drawable/camara" />
 
         <ImageButton
             android:id="@+id/imgFotoProducto2"
-            android:src="@drawable/camara"
-            android:scaleType="centerCrop"
             android:layout_width="100dp"
             android:layout_height="100dp"
             android:layout_margin="5dp"
             android:background="@android:color/darker_gray"
-            android:padding="5dp" />
+            android:padding="5dp"
+            android:scaleType="centerCrop"
+            android:src="@drawable/camara" />
 
         <ImageButton
             android:id="@+id/imgFotoProducto3"
-            android:src="@drawable/camara"
-            android:scaleType="centerCrop"
             android:layout_width="100dp"
             android:layout_height="100dp"
             android:layout_margin="5dp"
             android:background="@android:color/darker_gray"
-            android:padding="5dp" />
+            android:padding="5dp"
+            android:scaleType="centerCrop"
+            android:src="@drawable/camara" />
     </LinearLayout>
 
     <TextView
         android:id="@+id/txtIndicacionFotos"
-        android:text="Toca cada cámara para tomar una foto del producto (máx. 3)"
-        android:textSize="12sp"
-        android:layout_below="@id/linearImagenes"
-        android:layout_marginTop="10dp"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:gravity="center" />
+        android:layout_below="@id/linearImagenes"
+        android:layout_marginTop="20dp"
+        android:gravity="center"
+        android:text="Toca cada cámara para tomar una foto del producto (máx. 3)"
+        android:textSize="12sp" />
 
     <Button
         android:id="@+id/btnGuardarAmigo"
-        android:text="Guardar Producto"
-        android:layout_below="@id/txtIndicacionFotos"
-        android:layout_marginTop="20dp"
-        android:layout_marginLeft="20dp"
-        android:layout_marginRight="20dp"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content" />
+        android:layout_height="wrap_content"
+        android:layout_below="@id/txtIndicacionFotos"
+        android:layout_marginLeft="20dp"
+        android:layout_marginTop="22dp"
+        android:layout_marginRight="20dp"
+        android:text="Guardar Producto" />
 
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fabListaAmigo"
