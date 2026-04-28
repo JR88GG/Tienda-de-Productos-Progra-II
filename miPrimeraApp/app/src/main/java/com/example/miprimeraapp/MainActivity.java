@@ -235,7 +235,6 @@ public class MainActivity extends AppCompatActivity {
                     JSONObject datos = new JSONObject(parametros.getString("producto"));
 
                     // Guardar _id y _rev de CouchDB
-
                     if (datos.has("_id") && datos.has("_rev")) {
                         id = datos.getString("_id");
                         rev = datos.getString("_rev");
@@ -252,9 +251,6 @@ public class MainActivity extends AppCompatActivity {
 
                     tempval = findViewById(R.id.txtTelefonoAmigos);
                     tempval.setText(String.valueOf(datos.getDouble("precio")));
-
-                    tempval = findViewById(R.id.txtEmailAmigos);
-                    tempval.setText(String.valueOf(datos.getInt("stock")));
 
                     tempval = findViewById(R.id.txtEmailAmigos);
                     tempval.setText(String.valueOf(datos.getInt("stock")));
@@ -436,7 +432,7 @@ public class MainActivity extends AppCompatActivity {
         txtEmail.setText("");
 
         TextView txtEmail2 = findViewById(R.id.txtEmailAmigos2);
-        txtEmail.setText("");
+        txtEmail2.setText("");
 
         TextView txtDui = findViewById(R.id.txtDuiAmigos);
         txtDui.setText("");
@@ -480,6 +476,21 @@ public class MainActivity extends AppCompatActivity {
     }
 
     // ============================================
+    // CALCULAR GANANCIA (precio - costo)
+    // ============================================
+    private double calcularGanancia(double precio, double costo) {
+        return precio - costo;
+    }
+
+    // ============================================
+    // CALCULAR MARGEN DE GANANCIA EN PORCENTAJE
+    // ============================================
+    private double calcularMargenPorcentaje(double precio, double costo) {
+        if (precio <= 0) return 0;
+        return ((precio - costo) / precio) * 100;
+    }
+
+    // ============================================
     // GUARDAR PRODUCTO
     // ============================================
     private void guardarProducto() {
@@ -497,11 +508,11 @@ public class MainActivity extends AppCompatActivity {
             tempval = findViewById(R.id.txtTelefonoAmigos);
             String precio = tempval.getText().toString().trim();
 
-            tempval = findViewById(R.id.txtEmailAmigos);
-            String stock = tempval.getText().toString().trim();
-
             tempval = findViewById(R.id.txtEmailAmigos2);
             String costo = tempval.getText().toString().trim();
+
+            tempval = findViewById(R.id.txtEmailAmigos);
+            String stock = tempval.getText().toString().trim();
 
             tempval = findViewById(R.id.txtDuiAmigos);
             String categoria = tempval.getText().toString().trim();
@@ -559,6 +570,14 @@ public class MainActivity extends AppCompatActivity {
                 findViewById(R.id.txtEmailAmigos).requestFocus();
                 return;
             }
+
+            if (costo.isEmpty()) {
+                mostrarMensaje("Por favor ingrese el costo del producto");
+                findViewById(R.id.txtEmailAmigos2).requestFocus();
+                return;
+            }
+
+            // BUG CORREGIDO: antes usaba 'precio' en lugar de 'costo'
             double costoDouble;
             try {
                 costoDouble = Double.parseDouble(costo);
@@ -589,9 +608,26 @@ public class MainActivity extends AppCompatActivity {
                 return;
             }
 
+            // ============ CALCULAR GANANCIA ============
+            double ganancia = calcularGanancia(precioDouble, costoDouble);
+            double margen   = calcularMargenPorcentaje(precioDouble, costoDouble);
+
+            if (ganancia < 0) {
+                mostrarMensaje(String.format(
+                        "⚠️ El costo ($%.2f) es mayor al precio ($%.2f). Verifique los valores.",
+                        costoDouble, precioDouble));
+                // Si no quiere permitir ganancia negativa, descomenta la siguiente línea:
+                // return;
+            }
+
+            Log.d("GANANCIA", String.format(
+                    "Precio: $%.2f | Costo: $%.2f | Ganancia: $%.2f | Margen: %.1f%%",
+                    precioDouble, costoDouble, ganancia, margen));
+
             // ============ GUARDAR EN BASE DE DATOS LOCAL ============
             String[] imagenes = {urlFoto1, urlFoto2, urlFoto3};
-            String[] datos = {idProducto, nombre, descripcion, precio, stock,costo, categoria};
+            String[] datos = {idProducto, nombre, descripcion, precio, stock, costo, categoria,
+                    String.valueOf(ganancia), String.valueOf(margen)};
 
             String respuesta = db.administrar_productos(accion, datos, imagenes);
 
@@ -601,7 +637,6 @@ public class MainActivity extends AppCompatActivity {
             }
 
             // ============ GUARDAR EN COUCHDB ============
-            // ============ GUARDAR EN COUCHDB ============
             JSONObject datosProducto = new JSONObject();
 
             if (accion.equals("modificar")) {
@@ -609,14 +644,16 @@ public class MainActivity extends AppCompatActivity {
                 datosProducto.put("_rev", rev);
             }
 
-            datosProducto.put("idProducto", idProducto);
-            datosProducto.put("nombre", nombre);
-            datosProducto.put("descripcion", descripcion);
-            datosProducto.put("precio", precioDouble);
-            datosProducto.put("stock", stockInt);
-            datosProducto.put("costo", costoDouble);
-            datosProducto.put("categoria", categoria);
-            datosProducto.put("tipo", "producto");
+            datosProducto.put("idProducto",   idProducto);
+            datosProducto.put("nombre",        nombre);
+            datosProducto.put("descripcion",   descripcion);
+            datosProducto.put("precio",        precioDouble);
+            datosProducto.put("stock",         stockInt);
+            datosProducto.put("costo",         costoDouble);
+            datosProducto.put("ganancia",      ganancia);
+            datosProducto.put("margen_pct",    Math.round(margen * 10.0) / 10.0);
+            datosProducto.put("categoria",     categoria);
+            datosProducto.put("tipo",          "producto");
             datosProducto.put("fecha_creacion", System.currentTimeMillis());
 
             // Crear array de imágenes
@@ -632,7 +669,7 @@ public class MainActivity extends AppCompatActivity {
             }
             datosProducto.put("imagenes", imagenesArray);
 
-            // 🔥 SI HAY INTERNET: Sincronizar
+            // SI HAY INTERNET: Sincronizar
             if (di.hayConexionInternet()) {
                 String metodo = accion.equals("modificar") ? "PUT" : "POST";
                 String url = utilidades.url_mantenimiento;
@@ -652,21 +689,21 @@ public class MainActivity extends AppCompatActivity {
                         datosProducto.put("_id", id);
                         datosProducto.put("_rev", rev);
 
-                        mostrarMensaje("✅ Sincronizado con servidor");
+                        mostrarMensaje(String.format(
+                                "✅ Sincronizado | Ganancia: $%.2f (%.1f%%)", ganancia, margen));
                     } else {
-                        // 🔥 Si falla, guardar como pendiente
                         guardarEnPendientes(idProducto, accion, datosProducto);
                         mostrarMensaje("⚠️ Se sincronizará después");
                     }
                 } catch (Exception e) {
-                    // 🔥 Si hay error, guardar como pendiente
                     guardarEnPendientes(idProducto, accion, datosProducto);
                     mostrarMensaje("⚠️ Se sincronizará cuando hay conexión");
                 }
             } else {
-                // 🔥 SIN INTERNET: Guardar como pendiente
+                // SIN INTERNET: Guardar como pendiente
                 guardarEnPendientes(idProducto, accion, datosProducto);
-                mostrarMensaje("📱 Guardado localmente. Se sincronizará cuando hay conexión");
+                mostrarMensaje(String.format(
+                        "📱 Guardado localmente | Ganancia: $%.2f (%.1f%%)", ganancia, margen));
             }
 
             regresarListaProductos();
@@ -677,7 +714,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // 🔥 GUARDAR EN PENDIENTES (SharedPreferences)
+    // GUARDAR EN PENDIENTES (SharedPreferences)
     private void guardarEnPendientes(String idProducto, String accion, JSONObject datos) {
         try {
             android.content.SharedPreferences sp = getSharedPreferences("pendientes", MODE_PRIVATE);
@@ -709,20 +746,5 @@ public class MainActivity extends AppCompatActivity {
         Intent intent = new Intent(this, lista_productos.class);
         startActivity(intent);
         finish();
-    }
-    // ============================================
-    // CALCULAR GANANCIA (precio - costo)
-    // ============================================
-    private double calcularGanancia(String precioStr, String costoStr) {
-        try {
-            double precio = Double.parseDouble(precioStr);
-            double costo  = Double.parseDouble(costoStr);
-
-            if (precio <= 0 || costo <= 0) return -1;
-
-            return precio - costo; // ganancia bruta
-        } catch (NumberFormatException e) {
-            return -1; // señal de error
-        }
     }
 }

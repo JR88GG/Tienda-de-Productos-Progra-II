@@ -9,19 +9,25 @@ public class Producto {
     double precio;
     int stock;
     double costo;
+    double ganancia;   // ← NUEVO
+    double margen_pct; // ← NUEVO
     String categoria;
-    ArrayList<String> imagenes; // Lista de URLs de imágenes
+    ArrayList<String> imagenes;
 
     public Producto(String idProducto, String nombre, String descripcion,
-                    double precio, int stock,double costo, String categoria, ArrayList<String> imagenes) {
-        this.idProducto = idProducto;
-        this.nombre = nombre;
+                    double precio, int stock, double costo,
+                    double ganancia, double margen_pct,  // ← NUEVO
+                    String categoria, ArrayList<String> imagenes) {
+        this.idProducto  = idProducto;
+        this.nombre      = nombre;
         this.descripcion = descripcion;
-        this.precio = precio;
-        this.stock = stock;
-        this.costo = costo;
-        this.categoria = categoria;
-        this.imagenes = imagenes;
+        this.precio      = precio;
+        this.stock       = stock;
+        this.costo       = costo;
+        this.ganancia    = ganancia;
+        this.margen_pct  = margen_pct;
+        this.categoria   = categoria;
+        this.imagenes    = imagenes;
     }
 
     // Getters y Setters
@@ -39,8 +45,15 @@ public class Producto {
 
     public int getStock() { return stock; }
     public void setStock(int stock) { this.stock = stock; }
+
     public double getCosto() { return costo; }
     public void setCosto(double costo) { this.costo = costo; }
+
+    public double getGanancia() { return ganancia; }       // ← NUEVO
+    public void setGanancia(double ganancia) { this.ganancia = ganancia; }
+
+    public double getMargenPct() { return margen_pct; }    // ← NUEVO
+    public void setMargenPct(double margen_pct) { this.margen_pct = margen_pct; }
 
     public String getCategoria() { return categoria; }
     public void setCategoria(String categoria) { this.categoria = categoria; }

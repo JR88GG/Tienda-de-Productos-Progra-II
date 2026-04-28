@@ -41,7 +41,7 @@ public class lista_productos extends AppCompatActivity {
     Producto misProducto;
     detectarInternet di;
     obtenerDatosServidor datosServidor;
-    Producto productoSeleccionado;  // ← Agrega esta línea
+    Producto productoSeleccionado;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -56,13 +56,17 @@ public class lista_productos extends AppCompatActivity {
 
         di = new detectarInternet(this);
 
-        // 🔥 SINCRONIZAR PENDIENTES AL ABRIR
+        // SINCRONIZAR PENDIENTES AL ABRIR EN HILO SEPARADO
         if (di.hayConexionInternet()) {
-            sincronizarPendientes();
-            sincronizarEliminacionesPendientes();
+            new Thread(() -> {
+                sincronizarPendientes();
+                sincronizarEliminacionesPendientes();
+                // Refrescar lista en hilo principal al terminar
+                runOnUiThread(() -> obtenerProductos());
+            }).start();
+        } else {
+            obtenerProductos();
         }
-
-        obtenerProductos();
         buscarProductos();
     }
 
@@ -74,7 +78,7 @@ public class lista_productos extends AppCompatActivity {
 
         try {
             AdapterView.AdapterContextMenuInfo info = (AdapterView.AdapterContextMenuInfo) menuInfo;
-            posicion = info.position; // 🔥 IMPORTANTE: guardar la posición
+            posicion = info.position;
             Producto productoSeleccionado = alProductos.get(posicion);
             menu.setHeaderTitle(productoSeleccionado.getNombre());
 
@@ -82,8 +86,6 @@ public class lista_productos extends AppCompatActivity {
             mostrarMsg("Error al mostrar menú: " + e.getMessage());
         }
     }
-
-// BUG SOLUCIONADO A LA HORA DE FILTRAR
 
     @Override
     public boolean onContextItemSelected(@NonNull MenuItem item) {
@@ -99,28 +101,28 @@ public class lista_productos extends AppCompatActivity {
 
                 // Convertir el producto seleccionado a JSON
                 JSONObject jsonProducto = new JSONObject();
-                jsonProducto.put("idProducto", productoSeleccionado.getIdProducto());
-                jsonProducto.put("nombre", productoSeleccionado.getNombre());
-                jsonProducto.put("descripcion", productoSeleccionado.getDescripcion());
-                jsonProducto.put("precio", productoSeleccionado.getPrecio());
-                jsonProducto.put("stock", productoSeleccionado.getStock());
-                jsonProducto.put("costo", productoSeleccionado.getCosto());
-                jsonProducto.put("categoria", productoSeleccionado.getCategoria());
+                jsonProducto.put("idProducto",  productoSeleccionado.getIdProducto());
+                jsonProducto.put("nombre",       productoSeleccionado.getNombre());
+                jsonProducto.put("descripcion",  productoSeleccionado.getDescripcion());
+                jsonProducto.put("precio",       productoSeleccionado.getPrecio());
+                jsonProducto.put("stock",        productoSeleccionado.getStock());
+                jsonProducto.put("costo",        productoSeleccionado.getCosto());
+                jsonProducto.put("ganancia",     productoSeleccionado.getGanancia());     // ← NUEVO
+                jsonProducto.put("margen_pct",   productoSeleccionado.getMargenPct());   // ← NUEVO
+                jsonProducto.put("categoria",    productoSeleccionado.getCategoria());
 
-                // 🔥 AGREGAR: Buscar _id y _rev para CouchDB
+                // Buscar _id y _rev para CouchDB
                 try {
                     for (int i = 0; i < jsonArray.length(); i++) {
                         JSONObject temp = jsonArray.getJSONObject(i);
                         JSONObject docOriginal;
 
-                        // Verificar si es CouchDB (tiene "value") o local
                         if (temp.has("value")) {
                             docOriginal = temp.getJSONObject("value");
                         } else {
                             docOriginal = temp;
                         }
 
-                        // Comparar por idProducto
                         if (docOriginal.getString("idProducto").equals(productoSeleccionado.getIdProducto())) {
 
                             if (docOriginal.has("_id")) {
@@ -128,7 +130,6 @@ public class lista_productos extends AppCompatActivity {
                                 jsonProducto.put("_rev", docOriginal.getString("_rev"));
                             }
 
-                            // 🔥 FIX IMÁGENES
                             if (docOriginal.has("imagenes")) {
                                 jsonProducto.put("imagenes", docOriginal.getJSONArray("imagenes"));
                             }
@@ -137,7 +138,6 @@ public class lista_productos extends AppCompatActivity {
                         }
                     }
                 } catch (Exception e) {
-                    // Si no encuentra _id y _rev, solo es producto local, no hay problema
                     Log.d("DEBUG", "Producto local sin _id/_rev");
                 }
 
@@ -177,7 +177,7 @@ public class lista_productos extends AppCompatActivity {
             confirmacion.setPositiveButton("SÍ", (dialog, which) -> {
                 try {
 
-                    // 🔥 eliminar local
+                    // Eliminar local
                     String respuesta = db.administrar_productos("eliminar",
                             new String[]{idProducto},
                             new String[]{});
@@ -187,9 +187,8 @@ public class lista_productos extends AppCompatActivity {
                         return;
                     }
 
-                    // 🔥 eliminar servidor SOLO si existe _id y _rev
+                    // Eliminar servidor SOLO si existe _id y _rev
                     if (di.hayConexionInternet() && doc.has("_id") && doc.has("_rev")) {
-                        // Si hay internet, intenta eliminar del servidor
                         String _id = doc.getString("_id");
                         String _rev = doc.getString("_rev");
                         String url = utilidades.url_mantenimiento + "/" + _id + "?rev=" + _rev;
@@ -205,18 +204,15 @@ public class lista_productos extends AppCompatActivity {
                                 mostrarMsg("Producto eliminado correctamente");
                             }
                         } catch (Exception e) {
-                            // Si falla la sincronización, guardar como pendiente
                             guardarEliminacionPendiente(idProducto, _id, _rev);
                             mostrarMsg("⚠️ Se eliminará del servidor cuando haya conexión");
                         }
                     } else if (!di.hayConexionInternet() && doc.has("_id") && doc.has("_rev")) {
-                        // 🔥 SIN INTERNET: Guardar eliminación como pendiente
                         String _id = doc.getString("_id");
                         String _rev = doc.getString("_rev");
                         guardarEliminacionPendiente(idProducto, _id, _rev);
                         mostrarMsg("📱 Eliminado localmente. Se sincronizará cuando hay conexión");
                     } else {
-                        // Es un producto solo local, sin _id en servidor
                         mostrarMsg("Producto eliminado correctamente");
                     }
 
@@ -235,34 +231,26 @@ public class lista_productos extends AppCompatActivity {
         }
     }
 
-    // 🔥 NUEVA FUNCIÓN: Guardar eliminación como pendiente
     private void guardarEliminacionPendiente(String idProducto, String _id, String _rev) {
         try {
             android.content.SharedPreferences sp = getSharedPreferences("pendientes_eliminacion", MODE_PRIVATE);
             android.content.SharedPreferences.Editor editor = sp.edit();
-
             editor.putString("eliminar_" + idProducto, _id);
             editor.putString("eliminar_rev_" + idProducto, _rev);
             editor.apply();
-
             Log.d("ELIMINAR", "Guardado para eliminar: " + idProducto + " | _id: " + _id);
         } catch (Exception e) {
             Log.e("ELIMINAR_ERROR", "Error guardando eliminación: " + e.getMessage());
         }
     }
 
-    // 🔥 SINCRONIZAR ELIMINACIONES PENDIENTES
     private void sincronizarEliminacionesPendientes() {
-        if (!di.hayConexionInternet()) {
-            Log.d("SYNC_DELETE", "Sin conexión a internet");
-            return;
-        }
+        if (!di.hayConexionInternet()) return;
 
         android.content.SharedPreferences sp = getSharedPreferences("pendientes_eliminacion", MODE_PRIVATE);
         java.util.Map<String, ?> pendientes = sp.getAll();
 
-        int eliminados = 0;
-        int errores = 0;
+        int eliminados = 0, errores = 0;
 
         for (String key : pendientes.keySet()) {
             if (key.startsWith("eliminar_") && !key.endsWith("_rev")) {
@@ -272,25 +260,19 @@ public class lista_productos extends AppCompatActivity {
 
                 try {
                     String url = utilidades.url_mantenimiento + "/" + _id + "?rev=" + _rev;
-
-                    Log.d("SYNC_DELETE", "Eliminando: " + idProducto + " | _id: " + _id);
-
                     enviarDatosServidor obj = new enviarDatosServidor(this);
                     String resp = obj.execute("", "DELETE", url).get();
                     JSONObject respuestaJSON = new JSONObject(resp);
 
                     if (respuestaJSON.getBoolean("ok")) {
-                        // Eliminar de pendientes
                         android.content.SharedPreferences.Editor editor = sp.edit();
                         editor.remove(key);
                         editor.remove("eliminar_rev_" + idProducto);
                         editor.apply();
-
                         eliminados++;
                         Log.d("SYNC_DELETE", "✅ Eliminado: " + idProducto);
                     } else {
                         errores++;
-                        Log.e("SYNC_DELETE_ERROR", "Error: " + resp);
                     }
                 } catch (Exception e) {
                     errores++;
@@ -307,15 +289,8 @@ public class lista_productos extends AppCompatActivity {
     private void buscarProductos() {
         TextView tempVal = findViewById(R.id.txtBuscarAmigos);
         tempVal.addTextChangedListener(new TextWatcher() {
-            @Override
-            public void afterTextChanged(Editable s) {
-
-            }
-
-            @Override
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
-
-            }
+            @Override public void afterTextChanged(Editable s) {}
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
 
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
@@ -344,34 +319,82 @@ public class lista_productos extends AppCompatActivity {
 
     private void obtenerProductos() {
         try {
-            if (di.hayConexionInternet()) { //si hay conexion a internet
+            if (di.hayConexionInternet()) {
                 datosServidor = new obtenerDatosServidor();
                 String respuesta = datosServidor.execute().get();
+
+                // Respuesta vacía o nula
+                if (respuesta == null || respuesta.trim().isEmpty()) {
+                    Log.e("OBTENER", "Respuesta vacía, cargando local");
+                    mostrarMsg("⚠️ Sin respuesta del servidor, mostrando datos locales");
+                    cargarDesdeLocal();
+                    return;
+                }
+
+                // Verificar que empiece con '{' (JSON válido)
+                if (!respuesta.trim().startsWith("{")) {
+                    Log.e("OBTENER", "Respuesta no es JSON: " + respuesta.substring(0, Math.min(100, respuesta.length())));
+                    mostrarMsg("⚠️ Respuesta inválida del servidor, mostrando datos locales");
+                    cargarDesdeLocal();
+                    return;
+                }
+
                 jsonObject = new JSONObject(respuesta);
+
+                // Si el servidor retornó campo error
+                if (jsonObject.has("error")) {
+                    Log.e("OBTENER", "Error servidor: " + jsonObject.getString("error"));
+                    mostrarMsg("⚠️ Error del servidor, mostrando datos locales");
+                    cargarDesdeLocal();
+                    return;
+                }
+
                 jsonArray = jsonObject.getJSONArray("rows");
                 mostrarProductos();
-            } else { //no hay conexion a internet
-                cProductos = db.lista_productos();
-                if (cProductos.moveToFirst()) {
-                    jsonArray = new JSONArray();
-                    do {
-                        jsonObject = new JSONObject();
-                        jsonObject.put("idProducto", cProductos.getString(0));
-                        jsonObject.put("nombre", cProductos.getString(1));
-                        jsonObject.put("descripcion", cProductos.getString(2));
-                        jsonObject.put("precio", cProductos.getDouble(3));
-                        jsonObject.put("stock", cProductos.getInt(4));
-                        jsonObject.put("categoria", cProductos.getString(5));
-                        jsonArray.put(jsonObject);
-                    } while (cProductos.moveToNext());
-                    mostrarProductos();
-                } else {
-                    mostrarMsg("No hay productos que mostrar");
-                    abrirActivity();
-                }
+
+            } else {
+                cargarDesdeLocal();
             }
         } catch (Exception e) {
-            mostrarMsg(e.getMessage());
+            Log.e("OBTENER_ERROR", "Exception: " + e.getMessage());
+            mostrarMsg("Error al obtener productos: " + e.getMessage());
+            cargarDesdeLocal();
+        }
+    }
+
+    // ============================================
+    // CARGAR PRODUCTOS DESDE SQLITE LOCAL
+    // ============================================
+    private void cargarDesdeLocal() {
+        try {
+            cProductos = db.lista_productos();
+            if (cProductos.moveToFirst()) {
+                jsonArray = new JSONArray();
+                do {
+                    jsonObject = new JSONObject();
+                    // Columnas: 0=idProducto, 1=nombre, 2=descripcion,
+                    //           3=precio, 4=stock, 5=costo,
+                    //           6=ganancia, 7=margen_pct, 8=categoria
+                    jsonObject.put("idProducto",  cProductos.getString(0));
+                    jsonObject.put("nombre",       cProductos.getString(1));
+                    jsonObject.put("descripcion",  cProductos.getString(2));
+                    jsonObject.put("precio",       cProductos.getDouble(3));
+                    jsonObject.put("stock",        cProductos.getInt(4));
+                    jsonObject.put("costo",        cProductos.getDouble(5));
+                    jsonObject.put("ganancia",     cProductos.getDouble(6));
+                    jsonObject.put("margen_pct",   cProductos.getDouble(7));
+                    jsonObject.put("categoria",    cProductos.getString(8));
+                    jsonArray.put(jsonObject);
+                } while (cProductos.moveToNext());
+                cProductos.close();
+                mostrarProductos();
+            } else {
+                mostrarMsg("No hay productos que mostrar");
+                abrirActivity();
+            }
+        } catch (Exception e) {
+            Log.e("LOCAL_ERROR", "Error cargando local: " + e.getMessage());
+            mostrarMsg("Error al cargar datos locales: " + e.getMessage());
         }
     }
 
@@ -393,28 +416,22 @@ public class lista_productos extends AppCompatActivity {
 
                     ArrayList<String> imagenes = new ArrayList<>();
 
-                    // ========= SI VIENE DE COUCHDB =========
+                    // SI VIENE DE COUCHDB
                     if (doc.has("imagenes")) {
                         JSONArray imgs = doc.getJSONArray("imagenes");
-
                         for (int j = 0; j < imgs.length(); j++) {
                             JSONObject img = imgs.getJSONObject(j);
                             String url = img.getString("url");
-
-                            if (!url.isEmpty()) {
-                                imagenes.add(url);
-                            }
+                            if (!url.isEmpty()) imagenes.add(url);
                         }
                     }
 
-                    // ========= SI NO HAY EN COUCHDB, BUSCAR LOCAL =========
+                    // SI NO HAY EN COUCHDB, BUSCAR LOCAL
                     if (imagenes.isEmpty()) {
                         Cursor cImagenes = db.obtener_imagenes(doc.getString("idProducto"));
-
                         while (cImagenes.moveToNext()) {
                             imagenes.add(cImagenes.getString(0));
                         }
-
                         cImagenes.close();
                     }
 
@@ -425,6 +442,8 @@ public class lista_productos extends AppCompatActivity {
                             doc.getDouble("precio"),
                             doc.getInt("stock"),
                             doc.getDouble("costo"),
+                            doc.has("ganancia")   ? doc.getDouble("ganancia")   : 0.0,  // ← NUEVO
+                            doc.has("margen_pct") ? doc.getDouble("margen_pct") : 0.0,  // ← NUEVO
                             doc.getString("categoria"),
                             imagenes
                     );
@@ -445,21 +464,19 @@ public class lista_productos extends AppCompatActivity {
             mostrarMsg(e.getMessage());
         }
     }
+
     private void mostrarMsg(String msg) {
         Toast.makeText(this, msg, Toast.LENGTH_LONG).show();
     }
-    // 🔥 SINCRONIZAR PENDIENTES
+
     private void sincronizarPendientes() {
-        if (!di.hayConexionInternet()) {
-            Log.d("SYNC", "Sin conexión a internet");
-            return;
-        }
+        // Este método debe correr en un hilo secundario (llamado desde Thread en onCreate)
+        if (!di.hayConexionInternet()) return;
 
         android.content.SharedPreferences sp = getSharedPreferences("pendientes", MODE_PRIVATE);
-        java.util.Map<String, ?> pendientes = sp.getAll();
+        java.util.Map<String, ?> pendientes = new java.util.HashMap<>(sp.getAll()); // copia para evitar ConcurrentModification
 
-        int sincronizados = 0;
-        int errores = 0;
+        int sincronizados = 0, errores = 0;
 
         for (String key : pendientes.keySet()) {
             if (key.startsWith("pendiente_")) {
@@ -470,54 +487,40 @@ public class lista_productos extends AppCompatActivity {
                 try {
                     JSONObject datosJSON = new JSONObject(datos);
 
-                    String metodo = "POST";  // Por defecto: crear nuevo
+                    String metodo = "POST";
                     String url = utilidades.url_mantenimiento;
 
-                    // 🔥 SI YA TIENE _id, USAR PUT (actualizar)
                     if (datosJSON.has("_id") && !datosJSON.getString("_id").isEmpty()) {
                         String _id = datosJSON.getString("_id");
-                        String _rev = datosJSON.getString("_rev");
-
                         url = utilidades.url_mantenimiento + "/" + _id;
                         metodo = "PUT";
-
                         Log.d("SYNC", "Actualizando: " + idProducto + " | Método: PUT | _id: " + _id);
                     } else {
                         Log.d("SYNC", "Creando: " + idProducto + " | Método: POST");
                     }
 
-                    // Enviar a servidor
                     enviarDatosServidor objEnviar = new enviarDatosServidor(this);
                     String respuesta = objEnviar.execute(datosJSON.toString(), metodo, url).get();
+
+                    if (respuesta == null) {
+                        errores++;
+                        Log.e("SYNC_ERROR", "Respuesta nula para: " + idProducto);
+                        continue;
+                    }
+
                     JSONObject resp = new JSONObject(respuesta);
 
-                    if (resp.getBoolean("ok")) {
-                        // 🔥 SI FUE POST (crear), guardar el _id retornado
-                        if (metodo.equals("POST")) {
-                            String nuevoId = resp.getString("id");
-                            String nuevoRev = resp.getString("rev");
+                    if (resp.has("ok") && resp.getBoolean("ok")) {
+                        String nuevoId = resp.getString("id");
+                        String nuevoRev = resp.getString("rev");
 
-                            // Actualizar el JSON con el nuevo _id y _rev
-                            datosJSON.put("_id", nuevoId);
-                            datosJSON.put("_rev", nuevoRev);
-
-                            // Guardar de nuevo para próximas modificaciones
-                            android.content.SharedPreferences.Editor editor = sp.edit();
-                            editor.putString("pendiente_" + idProducto, datosJSON.toString());
-                            editor.apply();
-
-                            Log.d("SYNC", "Obtenido _id: " + nuevoId + " | _rev: " + nuevoRev);
-                        }
-
-                        // Eliminar de pendientes
                         android.content.SharedPreferences.Editor editor = sp.edit();
                         editor.remove(key);
                         editor.remove("accion_" + idProducto);
                         editor.apply();
 
                         sincronizados++;
-                        Log.d("SYNC", "✅ Sincronizado: " + idProducto);
-                        obtenerProductos();
+                        Log.d("SYNC", "✅ Sincronizado: " + idProducto + " | _id: " + nuevoId + " | _rev: " + nuevoRev);
                     } else {
                         errores++;
                         Log.e("SYNC_ERROR", "Error en servidor para " + idProducto + ": " + respuesta);
@@ -525,13 +528,23 @@ public class lista_productos extends AppCompatActivity {
                 } catch (Exception e) {
                     errores++;
                     Log.e("SYNC_ERROR", "Exception sincronizando " + idProducto + ": " + e.getMessage());
-                    e.printStackTrace();
                 }
             }
         }
 
-        if (sincronizados > 0 || errores > 0) {
-            Log.d("SYNC", "Resumen: " + sincronizados + " sincronizados, " + errores + " errores");
+        final int totalSinc = sincronizados;
+        final int totalErr  = errores;
+
+        if (totalSinc > 0 || totalErr > 0) {
+            Log.d("SYNC", "Resumen: " + totalSinc + " sincronizados, " + totalErr + " errores");
+            runOnUiThread(() -> {
+                if (totalSinc > 0) {
+                    mostrarMsg("✅ " + totalSinc + " producto(s) sincronizado(s) con el servidor");
+                }
+                if (totalErr > 0) {
+                    mostrarMsg("⚠️ " + totalErr + " producto(s) no se pudo sincronizar");
+                }
+            });
         }
     }
 }

@@ -10,22 +10,24 @@ import androidx.annotation.Nullable;
 // Constructor de la base de datos
 public class DB extends SQLiteOpenHelper {
     private static final String DATABASE_NAME = "tienda";
-    private static final int DATABASE_VERSION = 1;
+    private static final int DATABASE_VERSION = 2; // ← subido de 1 a 2 para forzar onUpgrade
 
     // Tabla de productos
     private static final String SQL_PRODUCTOS = "CREATE TABLE productos (" +
-            "idProducto INTEGER PRIMARY KEY AUTOINCREMENT, " +
+            "idProducto TEXT PRIMARY KEY, " +
             "nombre TEXT, " +
             "descripcion TEXT, " +
             "precio REAL, " +
             "stock INTEGER, " +
-            "costo REAL,"+
+            "costo REAL, " +
+            "ganancia REAL, " +       // ← NUEVO
+            "margen_pct REAL, " +     // ← NUEVO
             "categoria TEXT)";
 
     // Tabla de imágenes (relación muchos a uno con productos)
     private static final String SQL_IMAGENES = "CREATE TABLE imagenes (" +
             "idImagen INTEGER PRIMARY KEY AUTOINCREMENT, " +
-            "idProducto INTEGER, " +
+            "idProducto TEXT, " +
             "urlFoto TEXT, " +
             "orden INTEGER, " +
             "FOREIGN KEY(idProducto) REFERENCES productos(idProducto) ON DELETE CASCADE)";
@@ -47,54 +49,62 @@ public class DB extends SQLiteOpenHelper {
         onCreate(sqLiteDatabase);
     }
 
-    // Administrar productos
+    // ============================================
+    // ADMINISTRAR PRODUCTOS
+    // Array datos[]:
+    //   [0] idProducto
+    //   [1] nombre
+    //   [2] descripcion
+    //   [3] precio
+    //   [4] stock
+    //   [5] costo
+    //   [6] categoria
+    //   [7] ganancia
+    //   [8] margen_pct
+    // ============================================
     public String administrar_productos(String accion, String[] datos, String[] imagenes) {
         try {
             SQLiteDatabase db = getWritableDatabase();
-            String mensaje = "ok", sql = "";
+            db.execSQL("PRAGMA foreign_keys = ON");
+            String mensaje = "ok";
 
             switch (accion) {
                 case "nuevo":
-                    sql = "INSERT INTO productos(idProducto, nombre, descripcion, precio, stock, categoria) VALUES(" +
-                            "'" + datos[0] + "'," +      // 🔥 datos[0] es idProducto
-                            "'" + datos[1] + "'," +
-                            "'" + datos[2] + "'," +
-                            datos[3] + "," +
-                            datos[4] + "," +
-                            datos[5] + "," +
-                            "'" + datos[6] + "'" +
+                    String sqlInsert = "INSERT INTO productos(" +
+                            "idProducto, nombre, descripcion, precio, stock, costo, ganancia, margen_pct, categoria" +
+                            ") VALUES(" +
+                            "'" + datos[0] + "'," +   // idProducto
+                            "'" + datos[1] + "'," +   // nombre
+                            "'" + datos[2] + "'," +   // descripcion
+                            datos[3] + "," +           // precio
+                            datos[4] + "," +           // stock
+                            datos[5] + "," +           // costo
+                            datos[7] + "," +           // ganancia
+                            datos[8] + "," +           // margen_pct
+                            "'" + datos[6] + "'" +    // categoria
                             ")";
-                    db.execSQL(sql);
-
-                    // Obtener el ID del producto recién insertado
-                    Cursor c = db.rawQuery("SELECT last_insert_rowid()", null);
-                    c.moveToFirst();
-                    String idProducto = c.getString(0);
-                    c.close();
-
-                    // Guardar las imágenes
-                    guardarImagenes(db, idProducto, imagenes);
+                    db.execSQL(sqlInsert);
+                    guardarImagenes(db, datos[0], imagenes); // usar idProducto directo
                     break;
 
                 case "modificar":
-                    sql = "UPDATE productos SET " +
+                    String sqlUpdate = "UPDATE productos SET " +
                             "nombre='" + datos[1] + "'," +
                             "descripcion='" + datos[2] + "'," +
                             "precio=" + datos[3] + "," +
                             "stock=" + datos[4] + "," +
                             "costo=" + datos[5] + "," +
+                            "ganancia=" + datos[7] + "," +
+                            "margen_pct=" + datos[8] + "," +
                             "categoria='" + datos[6] + "' " +
                             "WHERE idProducto='" + datos[0] + "'";
-                    db.execSQL(sql);
-
-                    // Eliminar imágenes antiguas y guardar las nuevas
+                    db.execSQL(sqlUpdate);
                     db.execSQL("DELETE FROM imagenes WHERE idProducto='" + datos[0] + "'");
                     guardarImagenes(db, datos[0], imagenes);
                     break;
 
                 case "eliminar":
-                    sql = "DELETE FROM productos WHERE idProducto='" + datos[0] + "'";
-                    db.execSQL(sql);
+                    db.execSQL("DELETE FROM productos WHERE idProducto='" + datos[0] + "'");
                     // Las imágenes se eliminan automáticamente por ON DELETE CASCADE
                     break;
             }
@@ -118,10 +128,15 @@ public class DB extends SQLiteOpenHelper {
         }
     }
 
-    // Obtener lista de productos
+    // ============================================
+    // OBTENER LISTA DE PRODUCTOS
+    // Columnas: 0=idProducto, 1=nombre, 2=descripcion,
+    //           3=precio, 4=stock, 5=costo,
+    //           6=ganancia, 7=margen_pct, 8=categoria
+    // ============================================
     public Cursor lista_productos() {
         SQLiteDatabase db = getReadableDatabase();
-        return db.rawQuery("SELECT * FROM productos ORDER BY nombre", null);
+        return db.rawQuery("SELECT idProducto, nombre, descripcion, precio, stock, costo, ganancia, margen_pct, categoria FROM productos ORDER BY nombre", null);
     }
 
     // Obtener imágenes de un producto específico
